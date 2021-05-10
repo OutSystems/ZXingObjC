@@ -67,7 +67,7 @@
     _rotation = 0.0f;
     _running = NO;
     _transform = CGAffineTransformIdentity;
-    _scanRect = CGRectZero;
+    _scanRect = [[UIScreen mainScreen] bounds];
   }
   
   return self;
@@ -381,12 +381,10 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 - (void)decodeImage: (CGImageRef)image {
   // If scanRect is set, crop the current image to include only the desired rect
   if (!CGRectIsEmpty(self.scanRect)) {
-    CGImageRef croppedImage = CGImageCreateWithImageInRect(image, self.scanRect);
-    CGImageRelease(image);
-    image = croppedImage;
+      self.scanRect = [[UIScreen mainScreen] bounds];
   }
   
-  CGImageRef rotatedImage = [self createRotatedImage:image degrees:self.rotation];
+    CGImageRef rotatedImage = [self createRotatedImage:image degrees:self.rotation];
   CGImageRelease(image);
   self.lastScannedImage = rotatedImage;
   
@@ -472,46 +470,48 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CGImageRetain(original);
     return original;
   } else {
-    double radians = degrees * M_PI / 180;
-    
+      double radians = degrees * M_PI / 180;
+      
 #if TARGET_OS_EMBEDDED || TARGET_IPHONE_SIMULATOR
-    radians = -1 * radians;
+      radians = -1 * radians;
 #endif
-    
-    size_t _width = CGImageGetWidth(original);
-    size_t _height = CGImageGetHeight(original);
-    
-    CGRect imgRect = CGRectMake(0, 0, _width, _height);
-    CGAffineTransform __transform = CGAffineTransformMakeRotation(radians);
-    CGRect rotatedRect = CGRectApplyAffineTransform(imgRect, __transform);
-    
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate(NULL,
-                                                 rotatedRect.size.width,
-                                                 rotatedRect.size.height,
-                                                 CGImageGetBitsPerComponent(original),
-                                                 0,
-                                                 colorSpace,
-                                                 kCGBitmapAlphaInfoMask & kCGImageAlphaPremultipliedFirst);
-    CGContextSetAllowsAntialiasing(context, FALSE);
-    CGContextSetInterpolationQuality(context, kCGInterpolationNone);
-    CGColorSpaceRelease(colorSpace);
-    
-    CGContextTranslateCTM(context,
-                          +(rotatedRect.size.width/2),
-                          +(rotatedRect.size.height/2));
-    CGContextRotateCTM(context, radians);
-    
-    CGContextDrawImage(context, CGRectMake(-imgRect.size.width/2,
-                                           -imgRect.size.height/2,
-                                           imgRect.size.width,
-                                           imgRect.size.height),
-                       original);
-    
-    CGImageRef rotatedImage = CGBitmapContextCreateImage(context);
-    CFRelease(context);
-    
-    return rotatedImage;
+      
+      size_t _width = CGImageGetWidth(original);
+      size_t _height = CGImageGetHeight(original);
+      
+      CGRect imgRect = CGRectMake(0, 0, _width, _height);
+      CGAffineTransform __transform = CGAffineTransformMakeRotation(radians);
+      CGRect rotatedRect = CGRectApplyAffineTransform(imgRect, __transform);
+      
+      CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+      CGContextRef context = CGBitmapContextCreate(NULL,
+                                                   rotatedRect.size.width,
+                                                   rotatedRect.size.height,
+                                                   CGImageGetBitsPerComponent(original),
+                                                   0,
+                                                   colorSpace,
+                                                   kCGBitmapAlphaInfoMask & kCGImageAlphaPremultipliedFirst);
+      CGContextSetAllowsAntialiasing(context, FALSE);
+      CGContextSetInterpolationQuality(context, kCGInterpolationNone);
+      CGColorSpaceRelease(colorSpace);
+      
+      CGContextTranslateCTM(context,
+                            +(rotatedRect.size.width/2),
+                            +(rotatedRect.size.height/2));
+      CGContextRotateCTM(context, radians);
+      
+      CGContextDrawImage(context, CGRectMake(-imgRect.size.width/2,
+                                             -imgRect.size.height/2,
+                                             imgRect.size.width,
+                                             imgRect.size.height),
+                         original);
+      
+      CGImageRef rotatedImage = CGBitmapContextCreateImage(context);
+      if (context) {
+          CFRelease(context);
+      }
+      
+      return rotatedImage;
   }
 }
 
